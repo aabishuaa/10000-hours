@@ -14,6 +14,7 @@ const Roadmap = ({ milestones, currentHours, onToggleMilestone }) => {
         {milestones.map((milestone, index) => {
           const Icon = milestoneIcons[index] || BookIcon;
           const progress = Math.min((currentHours / milestone.targetHours) * 100, 100);
+          const remaining = Math.max(0, milestone.targetHours - currentHours);
 
           return (
             <div
@@ -29,6 +30,11 @@ const Roadmap = ({ milestones, currentHours, onToggleMilestone }) => {
                   <div className="milestone-hours">
                     Target: {milestone.targetHours.toLocaleString()} hours
                   </div>
+                  {!milestone.completed && remaining > 0 && (
+                    <div className="milestone-remaining">
+                      {remaining.toFixed(1)}h until you hit this milestone
+                    </div>
+                  )}
                 </div>
 
                 <div
@@ -48,6 +54,12 @@ const Roadmap = ({ milestones, currentHours, onToggleMilestone }) => {
                     className="milestone-progress-fill"
                     style={{ width: `${progress}%` }}
                   />
+                </div>
+              )}
+
+              {milestone.completed && (
+                <div className="milestone-celebration">
+                  <CheckIcon /> Synced with your goal — keep going!
                 </div>
               )}
             </div>

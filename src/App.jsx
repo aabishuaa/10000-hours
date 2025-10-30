@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import ProgressRing from './components/ProgressRing';
 import LogPanel from './components/LogPanel';
@@ -6,6 +6,8 @@ import StreakCounter from './components/StreakCounter';
 import WeeklyTracker from './components/WeeklyTracker';
 import Roadmap from './components/Roadmap';
 import AddSkillModal from './components/AddSkillModal';
+import EditSkillModal from './components/EditSkillModal';
+import ConfirmModal from './components/ConfirmModal';
 import Confetti from './components/Confetti';
 import { TargetIcon, CalendarIcon } from './components/Icons';
 
@@ -34,6 +36,8 @@ function App() {
   const [activeSkillId, setActiveSkillId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
+  const [skillBeingEdited, setSkillBeingEdited] = useState(null);
+  const [skillPendingDelete, setSkillPendingDelete] = useState(null);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -53,15 +57,92 @@ function App() {
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (skills.length > 0) {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ skills, activeSkillId })
-      );
-    }
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ skills, activeSkillId })
+    );
   }, [skills, activeSkillId]);
 
   const activeSkill = skills.find((s) => s.id === activeSkillId);
+
+  const sortLogsChronologically = (logs) =>
+    [...logs].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const calculateWeeklyData = (logs) => {
+    const today = new Date();
+    const startOfToday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+    const data = new Array(7).fill(0);
+
+    logs.forEach((log) => {
+      const logDate = new Date(log.date);
+      const startOfLogDay = new Date(
+        logDate.getFullYear(),
+        logDate.getMonth(),
+        logDate.getDate()
+      );
+
+      const diffInDays = Math.floor(
+        (startOfToday - startOfLogDay) / (1000 * 60 * 60 * 24)
+      );
+
+      if (diffInDays >= 0 && diffInDays < 7) {
+        data[logDate.getDay()] += log.hours;
+      }
+    });
+
+    return data;
+  };
+
+  const calculateStreak = (logs) => {
+    if (logs.length === 0) return 0;
+
+    const logDates = new Set(
+      sortLogsChronologically(logs).map((log) =>
+        new Date(log.date).toDateString()
+      )
+    );
+
+    let streak = 0;
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+
+    while (logDates.has(cursor.toDateString())) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    return streak;
+  };
+
+  const recalculateSkill = (skill) => {
+    const orderedLogs = sortLogsChronologically(skill.logs);
+    const totalHours = orderedLogs.reduce((sum, log) => sum + log.hours, 0);
+
+    const weeklyData = calculateWeeklyData(orderedLogs);
+    const streak = calculateStreak(orderedLogs);
+    const lastLogDate = orderedLogs.length
+      ? new Date(orderedLogs[orderedLogs.length - 1].date).toDateString()
+      : null;
+
+    const updatedMilestones = skill.milestones.map((milestone) => ({
+      ...milestone,
+      completed: totalHours >= milestone.targetHours,
+    }));
+
+    return {
+      ...skill,
+      hours: totalHours,
+      weeklyData,
+      streak,
+      lastLogDate,
+      milestones: updatedMilestones,
+    };
+  };
 
   // Add new skill
   const handleAddSkill = (name, goal) => {
@@ -77,60 +158,42 @@ function App() {
       lastLogDate: null,
     };
 
-    setSkills([...skills, newSkill]);
+    setSkills([...skills, recalculateSkill(newSkill)]);
     setActiveSkillId(newSkill.id);
   };
 
   // Log hours for active skill
-  const handleLogHours = (hours) => {
+  const handleLogHours = (hours, metadata = {}) => {
     if (!activeSkill) return;
 
-    const today = new Date().toDateString();
-    const dayOfWeek = new Date().getDay();
+    const enhancedHours = Number(hours);
+    if (!enhancedHours || enhancedHours <= 0) return;
 
     setSkills(
       skills.map((skill) => {
         if (skill.id !== activeSkillId) return skill;
 
-        const newHours = skill.hours + hours;
-        const newWeeklyData = [...skill.weeklyData];
-        newWeeklyData[dayOfWeek] += hours;
+        const previousCompleted = skill.milestones.filter((m) => m.completed).length;
+        const newLog = {
+          id: Date.now(),
+          hours: enhancedHours,
+          date: new Date().toISOString(),
+          type: metadata.type || 'manual',
+          note: metadata.note || null,
+          milestoneId: metadata.milestoneId || null,
+        };
 
-        // Update streak
-        let newStreak = skill.streak;
-        if (skill.lastLogDate !== today) {
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          const wasYesterday = skill.lastLogDate === yesterday.toDateString();
-
-          newStreak = wasYesterday || skill.lastLogDate === null ? skill.streak + 1 : 1;
-        }
-
-        // Check for milestone completion
-        const updatedMilestones = skill.milestones.map((m) => {
-          if (!m.completed && newHours >= m.targetHours) {
-            setConfettiTrigger((prev) => prev + 1);
-            return { ...m, completed: true };
-          }
-          return m;
+        const recalculated = recalculateSkill({
+          ...skill,
+          logs: [...skill.logs, newLog],
         });
 
-        return {
-          ...skill,
-          hours: newHours,
-          weeklyData: newWeeklyData,
-          streak: newStreak,
-          lastLogDate: today,
-          milestones: updatedMilestones,
-          logs: [
-            ...skill.logs,
-            {
-              id: Date.now(),
-              hours,
-              date: new Date().toISOString(),
-            },
-          ],
-        };
+        const newCompleted = recalculated.milestones.filter((m) => m.completed).length;
+        if (newCompleted > previousCompleted) {
+          setConfettiTrigger((prev) => prev + 1);
+        }
+
+        return recalculated;
       })
     );
   };
@@ -143,12 +206,53 @@ function App() {
       skills.map((skill) => {
         if (skill.id !== activeSkillId) return skill;
 
-        return {
+        const milestone = skill.milestones.find((m) => m.id === milestoneId);
+        if (!milestone) return skill;
+
+        if (!milestone.completed) {
+          const difference = Math.max(0, milestone.targetHours - skill.hours);
+          const previousCompleted = skill.milestones.filter((m) => m.completed).length;
+
+          const recalculated = recalculateSkill({
+            ...skill,
+            logs:
+              difference > 0
+                ? [
+                    ...skill.logs,
+                    {
+                      id: Date.now(),
+                      hours: difference,
+                      date: new Date().toISOString(),
+                      type: 'milestone',
+                      milestoneId,
+                      note: `Synced to ${milestone.title}`,
+                    },
+                  ]
+                : [...skill.logs],
+            milestones: skill.milestones.map((m) =>
+              m.id === milestoneId ? { ...m, completed: true } : m
+            ),
+          });
+
+          const newCompleted = recalculated.milestones.filter((m) => m.completed).length;
+          if (newCompleted > previousCompleted) {
+            setConfettiTrigger((prev) => prev + 1);
+          }
+
+          return recalculated;
+        }
+
+        const remainingLogs = skill.logs.filter(
+          (log) => log.milestoneId !== milestoneId
+        );
+
+        return recalculateSkill({
           ...skill,
+          logs: remainingLogs,
           milestones: skill.milestones.map((m) =>
-            m.id === milestoneId ? { ...m, completed: !m.completed } : m
+            m.id === milestoneId ? { ...m, completed: false } : m
           ),
-        };
+        });
       })
     );
 
@@ -159,6 +263,57 @@ function App() {
     }
   };
 
+  const handleRemoveLog = (logId) => {
+    if (!activeSkill) return;
+
+    setSkills(
+      skills.map((skill) => {
+        if (skill.id !== activeSkillId) return skill;
+        const updatedLogs = skill.logs.filter((log) => log.id !== logId);
+        return recalculateSkill({
+          ...skill,
+          logs: updatedLogs,
+        });
+      })
+    );
+  };
+
+  const handleUpdateSkill = (skillId, updates) => {
+    setSkills((prevSkills) =>
+      prevSkills.map((skill) => {
+        if (skill.id !== skillId) return skill;
+
+        const nextGoal = updates.goal || skill.goal;
+
+        let nextMilestones = skill.milestones;
+        if (updates.goal && updates.goal !== skill.goal) {
+          const template = createDefaultRoadmap(nextGoal);
+          nextMilestones = template.map((templateMilestone, index) => ({
+            ...templateMilestone,
+            id: skill.milestones[index]?.id || templateMilestone.id,
+          }));
+        }
+
+        return recalculateSkill({
+          ...skill,
+          ...updates,
+          goal: nextGoal,
+          milestones: nextMilestones,
+        });
+      })
+    );
+  };
+
+  const handleDeleteSkill = (skillId) => {
+    setSkills((prevSkills) => {
+      const remaining = prevSkills.filter((skill) => skill.id !== skillId);
+      if (skillId === activeSkillId) {
+        setActiveSkillId(remaining[0]?.id || null);
+      }
+      return remaining;
+    });
+  };
+
   // Format current date
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -167,6 +322,11 @@ function App() {
     day: 'numeric',
   });
 
+  const timelineLogs = useMemo(() => {
+    if (!activeSkill) return [];
+    return sortLogsChronologically(activeSkill.logs).reverse();
+  }, [activeSkill]);
+
   return (
     <div className="app">
       <Sidebar
@@ -174,6 +334,8 @@ function App() {
         activeSkillId={activeSkillId}
         onSelectSkill={setActiveSkillId}
         onAddSkill={() => setShowAddModal(true)}
+        onEditSkill={(skill) => setSkillBeingEdited(skill)}
+        onDeleteSkill={(skill) => setSkillPendingDelete(skill)}
       />
 
       <main className="main-content">
@@ -190,15 +352,19 @@ function App() {
         {activeSkill ? (
           <div className="dashboard-grid">
             <div className="progress-section">
-              <div className="card">
-                <div className="card-title">
-                  <TargetIcon />
-                  Progress Overview
-                </div>
+                <div className="card">
+                  <div className="card-title">
+                    <TargetIcon />
+                    Progress Overview
+                  </div>
 
                 <ProgressRing hours={activeSkill.hours} goal={activeSkill.goal} />
 
-                <LogPanel onLogHours={handleLogHours} />
+                <LogPanel
+                  onLogHours={handleLogHours}
+                  logs={timelineLogs}
+                  onRemoveLog={handleRemoveLog}
+                />
 
                 <StreakCounter streak={activeSkill.streak} />
               </div>
@@ -228,6 +394,34 @@ function App() {
 
       {showAddModal && (
         <AddSkillModal onAdd={handleAddSkill} onClose={() => setShowAddModal(false)} />
+      )}
+
+      {skillBeingEdited && (
+        <EditSkillModal
+          skill={skillBeingEdited}
+          onClose={() => setSkillBeingEdited(null)}
+          onSave={(updates) => {
+            handleUpdateSkill(skillBeingEdited.id, updates);
+            setSkillBeingEdited(null);
+          }}
+        />
+      )}
+
+      {skillPendingDelete && (
+        <ConfirmModal
+          title="Delete skill"
+          message={`Are you sure you want to delete ${skillPendingDelete.name}? This action cannot be undone.`}
+          confirmLabel="Delete"
+          confirmTone="danger"
+          onCancel={() => setSkillPendingDelete(null)}
+          onConfirm={() => {
+            if (skillBeingEdited?.id === skillPendingDelete.id) {
+              setSkillBeingEdited(null);
+            }
+            handleDeleteSkill(skillPendingDelete.id);
+            setSkillPendingDelete(null);
+          }}
+        />
       )}
 
       <Confetti trigger={confettiTrigger} />
