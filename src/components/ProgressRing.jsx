@@ -24,11 +24,15 @@ const ProgressRing = ({ hours, goal = 10000 }) => {
   return (
     <div className="progress-ring-container">
       <div className="progress-ring">
+        <div className="progress-ring-aurora" aria-hidden="true" />
+        <div className="progress-ring-orbit orbit-one" aria-hidden="true" />
+        <div className="progress-ring-orbit orbit-two" aria-hidden="true" />
         <svg width={radius * 2} height={radius * 2}>
           <defs>
             <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6EE7FF" />
-              <stop offset="100%" stopColor="#6A5CFF" />
+              <stop offset="0%" stopColor="#ff6ec7" />
+              <stop offset="50%" stopColor="#8b5cf6" />
+              <stop offset="100%" stopColor="#38bdf8" />
             </linearGradient>
           </defs>
 
