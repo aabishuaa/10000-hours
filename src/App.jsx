@@ -1,19 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
-import ProgressRing from './components/ProgressRing';
-import LogPanel from './components/LogPanel';
-import StreakCounter from './components/StreakCounter';
-import WeeklyTracker from './components/WeeklyTracker';
-import Roadmap from './components/Roadmap';
 import AddSkillModal from './components/AddSkillModal';
 import EditSkillModal from './components/EditSkillModal';
 import ConfirmModal from './components/ConfirmModal';
 import Confetti from './components/Confetti';
-import { TargetIcon, CalendarIcon } from './components/Icons';
+import SkillDashboard from './components/SkillDashboard';
+import { CalendarIcon, TargetIcon } from './components/Icons';
 
 const STORAGE_KEY = 'tenk.skills.v1';
 
-// Default roadmap template
 const createDefaultRoadmap = (goal) => {
   const milestones = [
     { title: 'Foundations', targetHours: goal * 0.1 },
@@ -33,29 +28,33 @@ const createDefaultRoadmap = (goal) => {
 
 function App() {
   const [skills, setSkills] = useState([]);
-  const [activeSkillId, setActiveSkillId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [skillBeingEdited, setSkillBeingEdited] = useState(null);
   const [skillPendingDelete, setSkillPendingDelete] = useState(null);
 
-  // Load data from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        setSkills(data.skills || []);
-        if (data.skills.length > 0) {
-          setActiveSkillId(data.activeSkillId || data.skills[0].id);
-        }
-      } catch (error) {
-        console.error('Failed to load saved data:', error);
+    if (!saved) return;
+
+    try {
+      const data = JSON.parse(saved);
+      if (Array.isArray(data.skills)) {
+        setSkills(
+          data.skills.map((skill) =>
+            recalculateSkill({
+              ...skill,
+              milestones: skill.milestones || createDefaultRoadmap(skill.goal),
+              logs: skill.logs || [],
+            })
+          )
+        );
       }
+    } catch (error) {
+      console.error('Failed to load saved data:', error);
     }
   }, []);
 
-  // Save data to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem(
       STORAGE_KEY,
@@ -63,7 +62,33 @@ function App() {
     );
   }, [skills, activeSkillId]);
 
-  const activeSkill = skills.find((s) => s.id === activeSkillId);
+    return streak;
+  };
+
+  const recalculateSkill = (skill) => {
+    const orderedLogs = sortLogsChronologically(skill.logs);
+    const totalHours = orderedLogs.reduce((sum, log) => sum + log.hours, 0);
+
+    const weeklyData = calculateWeeklyData(orderedLogs);
+    const streak = calculateStreak(orderedLogs);
+    const lastLogDate = orderedLogs.length
+      ? new Date(orderedLogs[orderedLogs.length - 1].date).toDateString()
+      : null;
+
+    const updatedMilestones = skill.milestones.map((milestone) => ({
+      ...milestone,
+      completed: totalHours >= milestone.targetHours,
+    }));
+
+    return {
+      ...skill,
+      hours: totalHours,
+      weeklyData,
+      streak,
+      lastLogDate,
+      milestones: updatedMilestones,
+    };
+  };
 
   const sortLogsChronologically = (logs) =>
     [...logs].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -169,9 +194,9 @@ function App() {
     const enhancedHours = Number(hours);
     if (!enhancedHours || enhancedHours <= 0) return;
 
-    setSkills(
-      skills.map((skill) => {
-        if (skill.id !== activeSkillId) return skill;
+    setSkills((prevSkills) =>
+      prevSkills.map((skill) => {
+        if (skill.id !== skillId) return skill;
 
         const previousCompleted = skill.milestones.filter((m) => m.completed).length;
         const newLog = {
@@ -198,13 +223,12 @@ function App() {
     );
   };
 
-  // Toggle milestone completion
-  const handleToggleMilestone = (milestoneId) => {
-    if (!activeSkill) return;
+  const handleUpdateSkill = (skillId, updates) => {
+    setSkills((prevSkills) =>
+      prevSkills.map((skill) => {
+        if (skill.id !== skillId) return skill;
 
-    setSkills(
-      skills.map((skill) => {
-        if (skill.id !== activeSkillId) return skill;
+        const nextGoal = updates.goal || skill.goal;
 
         const milestone = skill.milestones.find((m) => m.id === milestoneId);
         if (!milestone) return skill;
@@ -255,11 +279,22 @@ function App() {
         });
       })
     );
+  };
 
-    // Trigger confetti if marking as complete
-    const milestone = activeSkill.milestones.find((m) => m.id === milestoneId);
-    if (milestone && !milestone.completed) {
-      setConfettiTrigger((prev) => prev + 1);
+  const handleDeleteSkill = (skillId) => {
+    setSkills((prevSkills) =>
+      prevSkills.filter((skill) => skill.id !== skillId)
+    );
+  };
+
+  const handleFocusSkill = (skillId) => {
+    const node = sectionRefs.current[skillId];
+    if (node) {
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      node.classList.add('skill-dashboard-card--highlight');
+      window.setTimeout(() => {
+        node.classList.remove('skill-dashboard-card--highlight');
+      }, 1200);
     }
   };
 
@@ -331,8 +366,6 @@ function App() {
     <div className="app">
       <Sidebar
         skills={skills}
-        activeSkillId={activeSkillId}
-        onSelectSkill={setActiveSkillId}
         onAddSkill={() => setShowAddModal(true)}
         onEditSkill={(skill) => setSkillBeingEdited(skill)}
         onDeleteSkill={(skill) => setSkillPendingDelete(skill)}
@@ -340,9 +373,7 @@ function App() {
 
       <main className="main-content">
         <div className="main-header">
-          <h1 style={{ fontSize: '28px', fontWeight: '600' }}>
-            {activeSkill ? activeSkill.name : 'Select a skill to get started'}
-          </h1>
+          <h1 style={{ fontSize: '28px', fontWeight: '600' }}>All skills dashboard</h1>
           <div className="current-date">
             <CalendarIcon />
             {currentDate}
@@ -384,8 +415,7 @@ function App() {
               <TargetIcon />
               <h3>Ready to master a new skill?</h3>
               <p>
-                Add your first skill to start tracking your journey toward 10,000 hours of
-                mastery
+                Add your first skill to start tracking your journey toward 10,000 hours of mastery
               </p>
             </div>
           </div>

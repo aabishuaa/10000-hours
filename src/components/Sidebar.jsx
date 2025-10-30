@@ -36,8 +36,8 @@ const Sidebar = ({
             return (
               <div
                 key={skill.id}
-                className={`skill-item ${activeSkillId === skill.id ? 'active' : ''}`}
-                onClick={() => onSelectSkill(skill.id)}
+                className="skill-item"
+                onClick={() => onFocusSkill?.(skill.id)}
               >
                 <div className="skill-item-header">
                   <div className="skill-item-name">
