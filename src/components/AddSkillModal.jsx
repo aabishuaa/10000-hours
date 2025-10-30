@@ -49,6 +49,11 @@ const AddSkillModal = ({ onAdd, onClose }) => {
           min="1"
         />
 
+        <p className="modal-helper-text">
+          We use this target to craft a milestone roadmap and celebrate your breakthroughs
+          along the way.
+        </p>
+
         <div className="modal-buttons">
           <button className="modal-btn modal-btn-secondary" onClick={onClose}>
             Cancel
