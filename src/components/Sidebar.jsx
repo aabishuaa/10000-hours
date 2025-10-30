@@ -1,6 +1,13 @@
 import { ClockIcon, PlusIcon, TargetIcon, EditIcon, TrashIcon } from './Icons';
 
-const Sidebar = ({ skills, onAddSkill, onEditSkill, onDeleteSkill, onFocusSkill }) => {
+const Sidebar = ({
+  skills,
+  activeSkillId,
+  onSelectSkill,
+  onAddSkill,
+  onEditSkill,
+  onDeleteSkill,
+}) => {
   return (
     <div className="sidebar">
       <div className="sidebar-header">

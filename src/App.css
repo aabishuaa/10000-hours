@@ -323,6 +323,8 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--spacing-lg);
+  position: relative;
+  z-index: 1;
 }
 
 .skill-dashboard-title {
