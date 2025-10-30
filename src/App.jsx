@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
+import Dashboard from './components/Dashboard';
 import ProgressRing from './components/ProgressRing';
+import LiquidProgress from './components/LiquidProgress';
+import ParticleProgress from './components/ParticleProgress';
 import LogPanel from './components/LogPanel';
 import StreakCounter from './components/StreakCounter';
 import WeeklyTracker from './components/WeeklyTracker';
@@ -9,7 +12,8 @@ import AddSkillModal from './components/AddSkillModal';
 import EditSkillModal from './components/EditSkillModal';
 import ConfirmModal from './components/ConfirmModal';
 import Confetti from './components/Confetti';
-import { TargetIcon, CalendarIcon } from './components/Icons';
+import { ToastContainer, useToast } from './components/Toast';
+import { TargetIcon, CalendarIcon, GridIcon, EyeIcon } from './components/Icons';
 
 const STORAGE_KEY = 'tenk.skills.v1';
 
@@ -38,6 +42,9 @@ function App() {
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [skillBeingEdited, setSkillBeingEdited] = useState(null);
   const [skillPendingDelete, setSkillPendingDelete] = useState(null);
+  const [viewMode, setViewMode] = useState('skill'); // 'dashboard' or 'skill'
+  const [progressView, setProgressView] = useState('liquid'); // 'ring', 'liquid', 'particle'
+  const { toasts, addToast, removeToast } = useToast();
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -191,6 +198,16 @@ function App() {
         const newCompleted = recalculated.milestones.filter((m) => m.completed).length;
         if (newCompleted > previousCompleted) {
           setConfettiTrigger((prev) => prev + 1);
+          const nextMilestone = recalculated.milestones.find((m, idx) =>
+            idx === previousCompleted
+          );
+          addToast(
+            `🎉 Milestone achieved: ${nextMilestone?.title || 'New milestone'}!`,
+            'milestone',
+            4000
+          );
+        } else {
+          addToast(`✨ Logged ${enhancedHours} hours successfully!`, 'success', 2000);
         }
 
         return recalculated;
@@ -266,6 +283,7 @@ function App() {
   const handleRemoveLog = (logId) => {
     if (!activeSkill) return;
 
+    const logToRemove = activeSkill.logs.find(log => log.id === logId);
     setSkills(
       skills.map((skill) => {
         if (skill.id !== activeSkillId) return skill;
@@ -276,6 +294,9 @@ function App() {
         });
       })
     );
+    if (logToRemove) {
+      addToast(`Removed ${logToRemove.hours} hours`, 'success', 2000);
+    }
   };
 
   const handleUpdateSkill = (skillId, updates) => {
@@ -332,7 +353,10 @@ function App() {
       <Sidebar
         skills={skills}
         activeSkillId={activeSkillId}
-        onSelectSkill={setActiveSkillId}
+        onSelectSkill={(id) => {
+          setActiveSkillId(id);
+          setViewMode('skill');
+        }}
         onAddSkill={() => setShowAddModal(true)}
         onEditSkill={(skill) => setSkillBeingEdited(skill)}
         onDeleteSkill={(skill) => setSkillPendingDelete(skill)}
@@ -340,25 +364,94 @@ function App() {
 
       <main className="main-content">
         <div className="main-header">
-          <h1 style={{ fontSize: '28px', fontWeight: '600' }}>
-            {activeSkill ? activeSkill.name : 'Select a skill to get started'}
-          </h1>
-          <div className="current-date">
-            <CalendarIcon />
-            {currentDate}
+          <div className="main-header-left">
+            <h1 style={{ fontSize: '28px', fontWeight: '600' }}>
+              {viewMode === 'dashboard'
+                ? 'Dashboard'
+                : activeSkill
+                ? activeSkill.name
+                : 'Select a skill to get started'}
+            </h1>
+          </div>
+          <div className="main-header-right">
+            {skills.length > 0 && (
+              <div className="view-toggle-group">
+                <button
+                  className={`view-toggle-btn ${viewMode === 'dashboard' ? 'active' : ''}`}
+                  onClick={() => setViewMode('dashboard')}
+                  title="Dashboard View"
+                >
+                  <GridIcon />
+                </button>
+                <button
+                  className={`view-toggle-btn ${viewMode === 'skill' ? 'active' : ''}`}
+                  onClick={() => setViewMode('skill')}
+                  title="Skill View"
+                  disabled={!activeSkillId}
+                >
+                  <EyeIcon />
+                </button>
+              </div>
+            )}
+            <div className="current-date">
+              <CalendarIcon />
+              {currentDate}
+            </div>
           </div>
         </div>
 
-        {activeSkill ? (
+        {viewMode === 'dashboard' ? (
+          <Dashboard
+            skills={skills}
+            activeSkillId={activeSkillId}
+            onSelectSkill={(id) => {
+              setActiveSkillId(id);
+              setViewMode('skill');
+            }}
+          />
+        ) : activeSkill ? (
           <div className="dashboard-grid">
             <div className="progress-section">
-                <div className="card">
+              <div className="card">
+                <div className="card-header-with-actions">
                   <div className="card-title">
                     <TargetIcon />
                     Progress Overview
                   </div>
+                  <div className="progress-view-selector">
+                    <button
+                      className={`progress-view-btn ${progressView === 'liquid' ? 'active' : ''}`}
+                      onClick={() => setProgressView('liquid')}
+                      title="Liquid View"
+                    >
+                      Liquid
+                    </button>
+                    <button
+                      className={`progress-view-btn ${progressView === 'particle' ? 'active' : ''}`}
+                      onClick={() => setProgressView('particle')}
+                      title="Particle View"
+                    >
+                      Particle
+                    </button>
+                    <button
+                      className={`progress-view-btn ${progressView === 'ring' ? 'active' : ''}`}
+                      onClick={() => setProgressView('ring')}
+                      title="Ring View"
+                    >
+                      Ring
+                    </button>
+                  </div>
+                </div>
 
-                <ProgressRing hours={activeSkill.hours} goal={activeSkill.goal} />
+                {progressView === 'liquid' && (
+                  <LiquidProgress hours={activeSkill.hours} goal={activeSkill.goal} />
+                )}
+                {progressView === 'particle' && (
+                  <ParticleProgress hours={activeSkill.hours} goal={activeSkill.goal} />
+                )}
+                {progressView === 'ring' && (
+                  <ProgressRing hours={activeSkill.hours} goal={activeSkill.goal} />
+                )}
 
                 <LogPanel
                   onLogHours={handleLogHours}
@@ -425,6 +518,7 @@ function App() {
       )}
 
       <Confetti trigger={confettiTrigger} />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }

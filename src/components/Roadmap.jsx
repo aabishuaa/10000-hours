@@ -9,6 +9,9 @@ const Roadmap = ({ milestones, currentHours, onToggleMilestone }) => {
         <MapIcon />
         Learning Roadmap
       </div>
+      <p className="roadmap-hint">
+        💡 Click the checkbox to sync your hours to that milestone's target
+      </p>
 
       <div className="milestone-list">
         {milestones.map((milestone, index) => {
@@ -32,7 +35,8 @@ const Roadmap = ({ milestones, currentHours, onToggleMilestone }) => {
                   </div>
                   {!milestone.completed && remaining > 0 && (
                     <div className="milestone-remaining">
-                      {remaining.toFixed(1)}h until you hit this milestone
+                      <span className="milestone-remaining-hours">{remaining.toFixed(1)}h</span>
+                      <span className="milestone-remaining-text">remaining to reach this milestone</span>
                     </div>
                   )}
                 </div>
@@ -43,8 +47,18 @@ const Roadmap = ({ milestones, currentHours, onToggleMilestone }) => {
                   role="checkbox"
                   aria-checked={milestone.completed}
                   tabIndex={0}
+                  title={
+                    milestone.completed
+                      ? 'Click to unmark this milestone'
+                      : remaining > 0
+                      ? `Click to add ${remaining.toFixed(1)} hours and complete this milestone`
+                      : 'Click to mark this milestone as complete'
+                  }
                 >
                   {milestone.completed && <CheckIcon />}
+                  {!milestone.completed && remaining > 0 && (
+                    <span className="milestone-checkbox-hint">+{remaining.toFixed(0)}h</span>
+                  )}
                 </div>
               </div>
 
@@ -54,12 +68,13 @@ const Roadmap = ({ milestones, currentHours, onToggleMilestone }) => {
                     className="milestone-progress-fill"
                     style={{ width: `${progress}%` }}
                   />
+                  <span className="milestone-progress-text">{progress.toFixed(0)}%</span>
                 </div>
               )}
 
               {milestone.completed && (
                 <div className="milestone-celebration">
-                  <CheckIcon /> Synced with your goal — keep going!
+                  <CheckIcon /> Milestone achieved! Keep up the great work!
                 </div>
               )}
             </div>
