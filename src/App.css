@@ -445,6 +445,124 @@ body {
   }
 }
 
+.skill-dashboard-title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+}
+
+.skill-dashboard-title h2 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.skill-dashboard-title p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.skill-dashboard-title svg {
+  width: 32px;
+  height: 32px;
+  color: var(--accent-cyan);
+}
+
+.skill-dashboard-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.skill-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) 1fr;
+  gap: var(--spacing-xl);
+}
+
+.skill-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.skill-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
+
+.skill-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background: rgba(24, 30, 52, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  min-height: 84px;
+}
+
+.skill-stat svg {
+  width: 24px;
+  height: 24px;
+  color: rgba(56, 189, 248, 0.85);
+}
+
+.skill-stat .flame-icon {
+  width: 24px;
+  height: 24px;
+  animation: none;
+  filter: none;
+  color: var(--warning);
+}
+
+.skill-stat-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.skill-stat-value {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.skill-roadmap-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 1200px) {
+  .skill-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .skill-overview-stats {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .main-content {
+    padding: var(--spacing-lg);
+  }
+}
+
 /* ==================== */
 /* CARDS                */
 /* ==================== */

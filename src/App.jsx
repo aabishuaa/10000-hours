@@ -169,7 +169,6 @@ function App() {
     };
   };
 
-  // Add new skill
   const handleAddSkill = (name, goal) => {
     const newSkill = {
       id: `skill-${Date.now()}`,
@@ -349,7 +348,6 @@ function App() {
     });
   };
 
-  // Format current date
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
